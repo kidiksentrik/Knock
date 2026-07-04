@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 export default function Home() {
@@ -9,11 +9,43 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [checkingSession, setCheckingSession] = useState(true);
 
   const isSupabaseConfigured =
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
     !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder-project-id") &&
     !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("your-project-id");
+
+  useEffect(() => {
+    const checkActiveSession = async () => {
+      if (isSupabaseConfigured) {
+        try {
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            // Already logged in! Redirect straight to feed or onboarding depending on profile
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("id", session.user.id)
+              .single();
+
+            if (profile) {
+              window.location.href = "/feed";
+              return;
+            } else {
+              window.location.href = "/onboarding";
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to check active session on landing page:", err);
+        }
+      }
+      setCheckingSession(false);
+    };
+    checkActiveSession();
+  }, [isSupabaseConfigured]);
 
   const handleGoogleLogin = async () => {
     if (!isSupabaseConfigured) {
@@ -96,6 +128,14 @@ export default function Home() {
       setIsSubmitting(false);
     }
   };
+
+  if (isSupabaseConfigured && checkingSession) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-screen bg-knock-bg text-knock-cream">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-knock-mint" />
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex flex-col flex-1 items-center justify-between min-h-screen bg-knock-bg text-knock-cream overflow-hidden px-6 py-12">
