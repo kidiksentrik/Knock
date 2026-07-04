@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --color-knock-bg: #0B221A;
+  --color-knock-card: #132F26;
+  --color-knock-dark: #071611;
+  --color-knock-cream: #F4EAE1;
+  --color-knock-mint: #5FE3A1;
+  --color-knock-sage: #93F0C4;
+  
+  --font-sans: var(--font-outfit), sans-serif;
+  --font-mono: var(--font-mono), monospace;
+}
+
+:root {
+  --background: #0B221A;
+  --foreground: #F4EAE1;
+}
+
+body {
+  background-color: var(--color-knock-bg);
+  color: var(--color-knock-cream);
+  font-family: var(--font-sans);
+}
+
+/* Custom scrollbar to match the premium dark green theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-knock-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-knock-card);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-knock-mint);
+}
+
+/* Animations and keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { transform: translate(-50%, -20px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+.animate-scale-up {
+  animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
