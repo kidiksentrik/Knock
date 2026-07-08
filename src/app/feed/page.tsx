@@ -168,6 +168,11 @@ export default function FeedPage() {
   const [knockStatus, setKnockStatus] = useState<"idle" | "knocking" | "sent">("idle");
   const [actionLocked, setActionLocked] = useState(false);
 
+  // waiting room lobby states
+  const [totalUsers, setTotalUsers] = useState<number>(5);
+  const [loadingUsersCount, setLoadingUsersCount] = useState<boolean>(true);
+  const [blurProfiles, setBlurProfiles] = useState<any[]>([]);
+
   // Tabs states
   const [currentTab, setCurrentTab] = useState<"discover" | "hallway" | "chats" | "profile">("discover");
   const [hallwaySubTab, setHallwaySubTab] = useState<"matches" | "incoming" | "sent">("matches");
@@ -337,7 +342,7 @@ export default function FeedPage() {
   useEffect(() => {
     // Redirection check: if total users < 30, direct to lobby
     const checkUserLimit = async () => {
-      let countVal = 35; // default bypass for offline/unconfigured
+      let countVal = 5; // default wait limit for offline/unconfigured
       if (isSupabaseConfigured) {
         try {
           const { count, error } = await supabase
@@ -350,15 +355,18 @@ export default function FeedPage() {
           console.warn("Failed to check user limit for feed redirect:", e);
         }
       }
-
-      if (countVal < 30) {
-        window.location.href = "/discover";
-      }
+      setTotalUsers(countVal);
+      setLoadingUsersCount(false);
     };
     checkUserLimit();
 
     if (!isSupabaseConfigured) {
       loadGuestFallback();
+      setBlurProfiles([
+        { nickname: "Jan", vibePhotoUrl: "/room_cozy.png", matchRate: 94, university: "AGH" },
+        { nickname: "Anna", vibePhotoUrl: "/room_minimal.png", matchRate: 91, university: "UJ" },
+        { nickname: "Kamil", vibePhotoUrl: "/room_modern.png", matchRate: 88, university: "UEK" }
+      ]);
       return;
     }
 
@@ -373,6 +381,33 @@ export default function FeedPage() {
           return;
         }
         setUserId(user.id);
+
+        // Fetch profiles for the waiting room blur stacks
+        try {
+          const { data: profiles, error: pError } = await supabase
+            .from("profiles")
+            .select("nickname, vibe_photo_url, university")
+            .not("vibe_photo_url", "is", null)
+            .limit(3);
+
+          if (!pError && profiles && profiles.length > 0) {
+            const mapped = profiles.map((p, idx) => ({
+              nickname: p.nickname || `Student ${idx + 1}`,
+              vibePhotoUrl: p.vibe_photo_url || "/room_cozy.png",
+              matchRate: 90 + Math.floor(Math.random() * 8),
+              university: (p.university || "uj").toUpperCase()
+            }));
+            setBlurProfiles(mapped);
+          } else {
+            setBlurProfiles([
+              { nickname: "Jan", vibePhotoUrl: "/room_cozy.png", matchRate: 94, university: "AGH" },
+              { nickname: "Anna", vibePhotoUrl: "/room_minimal.png", matchRate: 91, university: "UJ" },
+              { nickname: "Kamil", vibePhotoUrl: "/room_modern.png", matchRate: 88, university: "UEK" }
+            ]);
+          }
+        } catch (e) {
+          console.warn("Failed to load real vibe profiles:", e);
+        }
 
         // 1. Fetch user profile
         const { data: profile, error } = await supabase
@@ -575,6 +610,24 @@ export default function FeedPage() {
       }
     };
   }, []);
+
+  const handleShareLobby = () => {
+    navigator.clipboard.writeText(window.location.origin)
+      .then(() => {
+        setToast({
+          title: "Link Copied!",
+          message: "Main application link copied to clipboard! Share with friends to open doors faster! 🚪✨",
+          show: true,
+          icon: "🚪"
+        });
+        setTimeout(() => {
+          setToast((prev) => ({ ...prev, show: false }));
+        }, 3000);
+      })
+      .catch((err) => {
+        console.error("Clipboard copy failed: ", err);
+      });
+  };
 
   // Fetch real database roommate candidates (when userData or userId changes)
   useEffect(() => {
@@ -1428,241 +1481,401 @@ export default function FeedPage() {
 
         {/* 1. DISCOVER TAB */}
         {currentTab === "discover" && (
-          <>
-            {!isPoolExhausted ? (
-              <div className="space-y-5 animate-scale-up">
-                {/* Candidate Card */}
-                <div className="bg-knock-card border border-knock-cream/10 rounded-3xl overflow-hidden shadow-2xl relative">
-                  
-                  {/* Room Image with overlay matching score */}
-                  <div className="relative aspect-[4/3] w-full bg-knock-dark overflow-hidden">
+          totalUsers < 30 ? (
+            <div className="space-y-6 animate-scale-up py-2">
+              {/* Wait Lobby Card */}
+              <div className="bg-knock-card border border-knock-cream/10 rounded-3xl p-6 md:p-8 shadow-2xl relative text-center">
+                <div className="absolute top-4 right-4 bg-knock-dark/80 border border-knock-mint/20 px-2.5 py-1 rounded-xl text-[9px] font-mono text-knock-mint">
+                  LOBBY
+                </div>
+
+                {/* Header */}
+                <div className="space-y-2.5 mb-6">
+                  <div className="w-16 h-16 mx-auto">
                     <img
-                      src={currentCandidate.photoUrl}
-                      alt={`${currentCandidate.name}'s flat`}
-                      className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
+                      src="/kudosaurus-full.png"
+                      alt="Kudosaurus Mascot"
+                      className="w-full h-full object-contain"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-knock-dark/80 via-transparent to-transparent pointer-events-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-bold tracking-tight text-knock-cream">
+                      {totalUsers < 10 ? "Building Kraków Rooms... 🛠️" : "Unlock Vibe Lobby 🔐"}
+                    </h2>
+                    <p className="text-[11px] text-knock-cream/60 leading-relaxed px-4">
+                      {totalUsers < 10
+                        ? "Connecting student spaces. Be the first to build the roommate scene in Kraków."
+                        : "Real students are matching based on vibe sync, budget compatibility, and clean habits."
+                      }
+                    </p>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="space-y-2 mb-6">
+                  <div className="flex justify-between items-center text-[9px] font-mono tracking-wider text-knock-cream/50 px-1">
+                    <span>Progress to Match Engine</span>
+                    <span className="text-knock-mint font-semibold">{totalUsers} / 30 Rooms Building</span>
+                  </div>
+                  <div className="w-full h-3 bg-knock-dark/85 rounded-full overflow-hidden border border-knock-cream/5 p-0.5">
+                    <div
+                      style={{ width: `${Math.min((totalUsers / 30) * 100, 100)}%` }}
+                      className="h-full bg-gradient-to-r from-knock-mint to-knock-sage rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(95,227,161,0.3)]"
+                    />
+                  </div>
+                </div>
+
+                {/* TIER 1: STATS & INSIGHTS (< 10) */}
+                {totalUsers < 10 && (
+                  <div className="bg-knock-dark/60 border border-knock-cream/5 rounded-2xl p-4 text-left space-y-3.5 animate-scale-up">
+                    <h3 className="text-[10px] font-mono font-bold tracking-wider text-knock-mint uppercase">
+                      🎓 Kraków Student Insights
+                    </h3>
                     
-                    {/* Dynamic Matching score badge */}
-                    <div className="absolute top-4 right-4 bg-knock-dark/80 backdrop-blur-md border border-knock-mint/30 px-3 py-1.5 rounded-2xl flex items-center space-x-1.5 shadow-[0_0_15px_rgba(95,227,161,0.15)] animate-pulse">
-                      <span className="text-[10px] font-mono text-knock-cream/70">SYNC</span>
-                      <span className="text-xs font-bold font-mono text-knock-mint">{matchScore}% Match</span>
+                    {/* Stat 1 */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[10px] font-semibold text-knock-cream/80">
+                        <span>🦉 Night Owls vs Early Birds</span>
+                        <span className="text-knock-sage font-mono text-[9px]">60% Night / 40% Early</span>
+                      </div>
+                      <div className="flex h-1.5 rounded-full overflow-hidden bg-knock-dark/50">
+                        <div className="h-full bg-knock-mint w-[60%]" />
+                        <div className="h-full bg-knock-cream/20 w-[40%]" />
+                      </div>
+                    </div>
+                    
+                    {/* Stat 2 */}
+                    <div className="flex items-center justify-between border-t border-knock-cream/5 pt-2.5">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-base">💰</span>
+                        <div>
+                          <p className="text-[9px] font-mono text-knock-cream/40">AVERAGE RENT</p>
+                          <p className="text-[11px] font-bold text-knock-cream">1,850 PLN / mo</p>
+                        </div>
+                      </div>
+                      <span className="text-[8px] bg-knock-cream/10 text-knock-cream/70 px-1.5 py-0.5 rounded font-mono">Room Only</span>
+                    </div>
+                    
+                    {/* Stat 3 */}
+                    <div className="flex items-center justify-between border-t border-knock-cream/5 pt-2.5">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-base">🚭</span>
+                        <div>
+                          <p className="text-[9px] font-mono text-knock-cream/40">AIR QUALITY SYNC</p>
+                          <p className="text-[11px] font-bold text-knock-cream">88% Non-Smokers</p>
+                        </div>
+                      </div>
+                      <span className="text-[8px] bg-knock-mint/20 text-knock-mint px-1.5 py-0.5 rounded font-mono font-semibold">Cozy Vibe</span>
                     </div>
                   </div>
+                )}
 
-                  {/* Bio & Details */}
-                  <div className="p-5 space-y-4">
-                    <div className="space-y-1">
-                      <div className="flex items-baseline space-x-2">
-                        <h2 className="text-xl font-bold text-knock-cream">{currentCandidate.name}</h2>
-                        <span className="text-xs text-knock-cream/60 font-mono">{currentCandidate.age}, {currentCandidate.gender}</span>
-                      </div>
-                      <p className="text-[11px] font-mono text-knock-mint">{currentCandidate.university}</p>
-                    </div>
-
-                    <p className="text-xs text-knock-cream/70 leading-relaxed font-sans">
-                      {currentCandidate.bio}
-                    </p>
-
-                    {/* Interest Tags */}
-                    {currentCandidate.tags && currentCandidate.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-0.5">
-                        {currentCandidate.tags.map((tagId) => {
-                          const found = INTEREST_TAGS.find((t) => t.id === tagId);
-                          const label = found ? found.label : tagId;
+                {/* TIER 2: BLURRED STACK (10 <= totalUsers < 30) */}
+                {totalUsers >= 10 && totalUsers < 30 && (
+                  <div className="space-y-3 relative animate-scale-up">
+                    <h3 className="text-[10px] font-mono font-bold tracking-wider text-knock-mint uppercase mb-1">
+                      ✨ Waiting in the lobby...
+                    </h3>
+                    <div className="relative h-44 w-full overflow-hidden rounded-2xl border border-knock-cream/5 bg-knock-dark/50 p-3 flex items-center justify-center">
+                      <div className="relative w-full h-full flex justify-center items-center">
+                        {blurProfiles.map((profile, idx) => {
+                          const scale = 1 - (blurProfiles.length - 1 - idx) * 0.05;
+                          const translateY = (blurProfiles.length - 1 - idx) * -8;
+                          const rotate = (idx % 2 === 0 ? 1 : -1) * (blurProfiles.length - 1 - idx) * 1.5;
                           return (
-                            <span 
-                              key={tagId} 
-                              className="text-[9px] font-semibold font-mono bg-knock-mint/10 text-knock-mint px-2.5 py-1 rounded-lg border border-knock-mint/20 tracking-wide"
+                            <div
+                              key={idx}
+                              style={{
+                                transform: `translateY(${translateY}px) scale(${scale}) rotate(${rotate}deg)`,
+                                zIndex: idx,
+                                filter: "blur(7px)"
+                              }}
+                              className="absolute w-44 h-32 rounded-xl overflow-hidden border border-knock-cream/10 bg-knock-card shadow-md"
                             >
-                              {label}
-                            </span>
+                              <img
+                                src={profile.vibePhotoUrl}
+                                alt="preview"
+                                className="w-full h-2/3 object-cover opacity-60"
+                              />
+                              <div className="p-2 space-y-0.5 bg-knock-card/90">
+                                <div className="flex justify-between items-center text-[8px] font-bold">
+                                  <span>{profile.nickname}</span>
+                                  <span className="text-knock-mint font-mono">{profile.matchRate}% Sync</span>
+                                </div>
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
-                    )}
-
-                    {/* Ideal Roommate Description */}
-                    {currentCandidate.idealRoommate && (
-                      <div className="bg-knock-dark/30 border border-knock-cream/5 rounded-2xl p-3.5 space-y-1">
-                        <h4 className="text-[8px] font-mono text-knock-cream/40 uppercase tracking-wider">🎯 Ideal Roommate</h4>
-                        <p className="text-[11px] text-knock-cream/80 italic font-sans leading-relaxed">
-                          &ldquo;{currentCandidate.idealRoommate}&rdquo;
+                      <div className="absolute inset-0 bg-knock-dark/65 backdrop-blur-[3px] flex flex-col justify-center items-center p-4 text-center z-10 animate-fade-in">
+                        <div className="w-8 h-8 bg-knock-mint/15 rounded-full flex items-center justify-center text-knock-mint border border-knock-mint/20 mb-2">
+                          🔒
+                        </div>
+                        <h4 className="text-[11px] font-bold text-knock-cream">Lobby Locked Until 30 Users</h4>
+                        <p className="text-[9px] text-knock-cream/60 leading-normal max-w-xs mt-1">
+                          A roommate with <strong className="text-knock-mint">92% lifestyle sync</strong> is waiting for you! Invite friends to unlock matching.
                         </p>
                       </div>
-                    )}
+                    </div>
+                  </div>
+                )}
 
-                    {/* Big 4 Lifestyle Comparison Grid (2x2 Table) */}
-                    <div className="border-t border-knock-cream/10 pt-4 space-y-3">
-                      <h3 className="text-[10px] font-mono tracking-wider text-knock-cream/50 uppercase">
-                        Lifestyle Match Grid (Big 4)
-                      </h3>
+                {/* Bottom Virality Links */}
+                <div className="mt-6 pt-5 border-t border-knock-cream/10 text-center space-y-3.5">
+                  <div className="bg-knock-dark/40 border border-knock-cream/5 rounded-xl p-2.5 flex items-start space-x-1.5 text-left">
+                    <span className="text-xs pt-0.5">⚡</span>
+                    <p className="text-[9px] text-knock-cream/65 leading-relaxed font-mono">
+                      We will send a lightning-fast invitation link to your registered email the exact second the doors open.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleShareLobby}
+                    className="w-full py-3 bg-knock-cream hover:bg-white text-knock-dark font-mono font-bold rounded-2xl text-[10px] tracking-wider uppercase transition-all duration-200 active:scale-95 cursor-pointer shadow-md"
+                  >
+                    Share to open the doors faster! 🚪
+                  </button>
+                </div>
 
-                      <div className="grid grid-cols-2 gap-3.5">
-                        {/* Grid Cell 1: Budget */}
-                        <div className="bg-knock-dark/40 border border-knock-cream/5 p-3 rounded-2xl space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-mono text-knock-cream/40 uppercase">Budget</span>
-                            {Math.abs(((userData.minBudget + userData.maxBudget)/2) - ((currentCandidate.minBudget + currentCandidate.maxBudget)/2)) < 500 ? (
-                              <span className="text-[10px]">🟢</span>
-                            ) : (
-                              <span className="text-[10px]">⚪</span>
-                            )}
-                          </div>
-                          <p className="text-xs font-bold text-knock-cream font-mono">
-                            {currentCandidate.minBudget}~{currentCandidate.maxBudget} PLN
-                          </p>
-                          <p className="text-[9px] text-knock-cream/50 font-mono">
-                            You: {userData.minBudget}~{userData.maxBudget} PLN
+              </div>
+            </div>
+          ) : (
+            <>
+              {!isPoolExhausted ? (
+                <div className="space-y-5 animate-scale-up">
+                  {/* Candidate Card */}
+                  <div className="bg-knock-card border border-knock-cream/10 rounded-3xl overflow-hidden shadow-2xl relative">
+                    
+                    {/* Room Image with overlay matching score */}
+                    <div className="relative aspect-[4/3] w-full bg-knock-dark overflow-hidden">
+                      <img
+                        src={currentCandidate.photoUrl}
+                        alt={`${currentCandidate.name}'s flat`}
+                        className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-knock-dark/80 via-transparent to-transparent pointer-events-none" />
+                      
+                      {/* Dynamic Matching score badge */}
+                      <div className="absolute top-4 right-4 bg-knock-dark/80 backdrop-blur-md border border-knock-mint/30 px-3 py-1.5 rounded-2xl flex items-center space-x-1.5 shadow-[0_0_15px_rgba(95,227,161,0.15)] animate-pulse">
+                        <span className="text-[10px] font-mono text-knock-cream/70">SYNC</span>
+                        <span className="text-xs font-bold font-mono text-knock-mint">{matchScore}% Match</span>
+                      </div>
+                    </div>
+
+                    {/* Bio & Details */}
+                    <div className="p-5 space-y-4">
+                      <div className="space-y-1">
+                        <div className="flex items-baseline space-x-2">
+                          <h2 className="text-xl font-bold text-knock-cream">{currentCandidate.name}</h2>
+                          <span className="text-xs text-knock-cream/60 font-mono">{currentCandidate.age}, {currentCandidate.gender}</span>
+                        </div>
+                        <p className="text-[11px] font-mono text-knock-mint">{currentCandidate.university}</p>
+                      </div>
+
+                      <p className="text-xs text-knock-cream/70 leading-relaxed font-sans">
+                        {currentCandidate.bio}
+                      </p>
+
+                      {/* Interest Tags */}
+                      {currentCandidate.tags && currentCandidate.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                          {currentCandidate.tags.map((tagId) => {
+                            const found = INTEREST_TAGS.find((t) => t.id === tagId);
+                            const label = found ? found.label : tagId;
+                            return (
+                              <span 
+                                key={tagId} 
+                                className="text-[9px] font-semibold font-mono bg-knock-mint/10 text-knock-mint px-2.5 py-1 rounded-lg border border-knock-mint/20 tracking-wide"
+                              >
+                                {label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Ideal Roommate Description */}
+                      {currentCandidate.idealRoommate && (
+                        <div className="bg-knock-dark/30 border border-knock-cream/5 rounded-2xl p-3.5 space-y-1">
+                          <h4 className="text-[8px] font-mono text-knock-cream/40 uppercase tracking-wider">🎯 Ideal Roommate</h4>
+                          <p className="text-[11px] text-knock-cream/80 italic font-sans leading-relaxed">
+                            &ldquo;{currentCandidate.idealRoommate}&rdquo;
                           </p>
                         </div>
+                      )}
 
-                        {/* Grid Cell 2: Smoking */}
-                        <div className="bg-knock-dark/40 border border-knock-cream/5 p-3 rounded-2xl space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-mono text-knock-cream/40 uppercase">Smoking</span>
-                            {userData.smoking === currentCandidate.smoking ? (
-                              <span className="text-[10px]">🟢</span>
-                            ) : (
-                              <span className="text-[10px]">⚪</span>
-                            )}
-                          </div>
-                          <p className="text-xs font-bold text-knock-cream font-mono truncate">
-                            {getLabel("smoking", currentCandidate.smoking)}
-                          </p>
-                          <p className="text-[9px] text-knock-cream/50 font-mono truncate">
-                            You: {getLabel("smoking", userData.smoking)}
-                          </p>
-                        </div>
+                      {/* Big 4 Lifestyle Comparison Grid (2x2 Table) */}
+                      <div className="border-t border-knock-cream/10 pt-4 space-y-3">
+                        <h3 className="text-[10px] font-mono tracking-wider text-knock-cream/50 uppercase">
+                          Lifestyle Match Grid (Big 4)
+                        </h3>
 
-                        {/* Grid Cell 3: Sleep */}
-                        <div className="bg-knock-dark/40 border border-knock-cream/5 p-3 rounded-2xl space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-mono text-knock-cream/40 uppercase">Sleep Rhythm</span>
-                            {userData.sleep === currentCandidate.sleep ? (
-                              <span className="text-[10px]">🟢</span>
-                            ) : (
-                              <span className="text-[10px]">⚪</span>
-                            )}
+                        <div className="grid grid-cols-2 gap-3.5">
+                          {/* Grid Cell 1: Budget */}
+                          <div className="bg-knock-dark/40 border border-knock-cream/5 p-3 rounded-2xl space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-mono text-knock-cream/40 uppercase">Budget</span>
+                              {Math.abs(((userData.minBudget + userData.maxBudget)/2) - ((currentCandidate.minBudget + currentCandidate.maxBudget)/2)) < 500 ? (
+                                <span className="text-[10px]">🟢</span>
+                              ) : (
+                                <span className="text-[10px]">⚪</span>
+                              )}
+                            </div>
+                            <p className="text-xs font-bold text-knock-cream font-mono">
+                              {currentCandidate.minBudget}~{currentCandidate.maxBudget} PLN
+                            </p>
+                            <p className="text-[9px] text-knock-cream/55 font-mono">
+                              You: {userData.minBudget}~{userData.maxBudget} PLN
+                            </p>
                           </div>
-                          <p className="text-xs font-bold text-knock-cream font-mono truncate">
-                            {getLabel("sleep", currentCandidate.sleep)}
-                          </p>
-                          <p className="text-[9px] text-knock-cream/50 font-mono truncate">
-                            You: {getLabel("sleep", userData.sleep)}
-                          </p>
-                        </div>
 
-                        {/* Grid Cell 4: Cleanliness */}
-                        <div className="bg-knock-dark/40 border border-knock-cream/5 p-3 rounded-2xl space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-mono text-knock-cream/40 uppercase">Cleanliness</span>
-                            {userData.cleanliness === currentCandidate.cleanliness ? (
-                              <span className="text-[10px]">🟢</span>
-                            ) : (
-                              <span className="text-[10px]">⚪</span>
-                            )}
+                          {/* Grid Cell 2: Smoking */}
+                          <div className="bg-knock-dark/40 border border-knock-cream/5 p-3 rounded-2xl space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-mono text-knock-cream/40 uppercase">Smoking</span>
+                              {userData.smoking === currentCandidate.smoking ? (
+                                <span className="text-[10px]">🟢</span>
+                              ) : (
+                                <span className="text-[10px]">⚪</span>
+                              )}
+                            </div>
+                            <p className="text-xs font-bold text-knock-cream font-mono truncate">
+                              {getLabel("smoking", currentCandidate.smoking)}
+                            </p>
+                            <p className="text-[9px] text-knock-cream/55 font-mono truncate">
+                              You: {getLabel("smoking", userData.smoking)}
+                            </p>
                           </div>
-                          <p className="text-xs font-bold text-knock-cream font-mono truncate">
-                            {getLabel("cleanliness", currentCandidate.cleanliness)}
-                          </p>
-                          <p className="text-[9px] text-knock-cream/50 font-mono truncate">
-                            You: {getLabel("cleanliness", userData.cleanliness)}
-                          </p>
+
+                          {/* Grid Cell 3: Sleep */}
+                          <div className="bg-knock-dark/40 border border-knock-cream/5 p-3 rounded-2xl space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-mono text-knock-cream/40 uppercase">Sleep Rhythm</span>
+                              {userData.sleep === currentCandidate.sleep ? (
+                                <span className="text-[10px]">🟢</span>
+                              ) : (
+                                <span className="text-[10px]">⚪</span>
+                              )}
+                            </div>
+                            <p className="text-xs font-bold text-knock-cream font-mono truncate">
+                              {getLabel("sleep", currentCandidate.sleep)}
+                            </p>
+                            <p className="text-[9px] text-knock-cream/55 font-mono truncate">
+                              You: {getLabel("sleep", userData.sleep)}
+                            </p>
+                          </div>
+
+                          {/* Grid Cell 4: Cleanliness */}
+                          <div className="bg-knock-dark/40 border border-knock-cream/5 p-3 rounded-2xl space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-mono text-knock-cream/40 uppercase">Cleanliness</span>
+                              {userData.cleanliness === currentCandidate.cleanliness ? (
+                                <span className="text-[10px]">🟢</span>
+                              ) : (
+                                <span className="text-[10px]">⚪</span>
+                              )}
+                            </div>
+                            <p className="text-xs font-bold text-knock-cream font-mono truncate">
+                              {getLabel("cleanliness", currentCandidate.cleanliness)}
+                            </p>
+                            <p className="text-[9px] text-knock-cream/55 font-mono truncate">
+                              You: {getLabel("cleanliness", userData.cleanliness)}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Action Buttons: Pass and Knock */}
-                <div className="flex items-center space-x-3.5 px-1">
-                  <button
-                    type="button"
-                    onClick={handlePass}
-                    disabled={actionLocked}
-                    className="w-16 h-16 rounded-2xl bg-knock-card border border-knock-cream/10 text-knock-cream/60 hover:text-knock-cream hover:border-knock-cream/30 flex items-center justify-center text-lg active:scale-95 transition-all duration-200 disabled:opacity-40"
-                  >
-                    ✕
-                  </button>
-
-                  {userData.is_verified === false && userData.verification_method === "id_card" ? (
+                  {/* Action Buttons: Pass and Knock */}
+                  <div className="flex items-center space-x-3.5 px-1">
                     <button
                       type="button"
-                      onClick={() => alert("Verification Pending: Your Student ID card photo is currently under manual review. Sending a 'Knock' will be unlocked once approved!")}
-                      className="flex-1 py-5 rounded-2xl text-xs font-bold font-mono tracking-wider uppercase bg-knock-cream/10 text-knock-cream/40 border border-knock-cream/5 cursor-not-allowed"
-                    >
-                      Pending Verification 🔒
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleKnock}
+                      onClick={handlePass}
                       disabled={actionLocked}
-                      className={`flex-1 py-5 rounded-2xl text-xs font-bold font-mono tracking-wider uppercase transition-all duration-300 ${
-                        knockStatus === "sent"
-                          ? "bg-knock-mint text-knock-dark shadow-[0_0_20px_rgba(95,227,161,0.2)]"
-                          : knockStatus === "knocking"
-                          ? "bg-knock-mint/70 text-knock-dark cursor-wait"
-                          : "bg-knock-cream hover:bg-white text-knock-dark hover:shadow-lg active:scale-98"
-                      }`}
+                      className="w-16 h-16 rounded-2xl bg-knock-card border border-knock-cream/10 text-knock-cream/60 hover:text-knock-cream hover:border-knock-cream/30 flex items-center justify-center text-lg active:scale-95 transition-all duration-200 disabled:opacity-40"
                     >
-                      {knockStatus === "idle" && "Knock 🚪"}
-                      {knockStatus === "knocking" && "Knocking..."}
-                      {knockStatus === "sent" && "Sent! 🚪"}
+                      ✕
                     </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              /* EMPTY STATE - KUDOSAURUS MASCOT CAMEO */
-              <div className="text-center py-8 space-y-6 animate-scale-up">
-                <div className="relative w-28 h-28 mx-auto">
-                  <img
-                    src="/kudosaurus-full.png"
-                    alt="Kudosaurus Mascot"
-                    className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(95,227,161,0.2)]"
-                  />
-                </div>
 
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-bold tracking-tight text-knock-cream">
-                    All doors are knocked on!
-                  </h2>
-                  <p className="text-xs text-knock-cream/60 leading-relaxed max-w-xs mx-auto">
-                    Kudosaurus has checked every roommate candidate in Kraków. Reset swipes to search again, or share your profile to invite others!
-                  </p>
+                    {userData.is_verified === false && userData.verification_method === "id_card" ? (
+                      <button
+                        type="button"
+                        onClick={() => alert("Verification Pending: Your Student ID card photo is currently under manual review. Sending a 'Knock' will be unlocked once approved!")}
+                        className="flex-1 py-5 rounded-2xl text-xs font-bold font-mono tracking-wider uppercase bg-knock-cream/10 text-knock-cream/40 border border-knock-cream/5 cursor-not-allowed"
+                      >
+                        Pending Verification 🔒
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleKnock}
+                        disabled={actionLocked}
+                        className={`flex-1 py-5 rounded-2xl text-xs font-bold font-mono tracking-wider uppercase transition-all duration-300 ${
+                          knockStatus === "sent"
+                            ? "bg-knock-mint text-knock-dark shadow-[0_0_20px_rgba(95,227,161,0.2)]"
+                            : knockStatus === "knocking"
+                            ? "bg-knock-mint/70 text-knock-dark cursor-wait"
+                            : "bg-knock-cream hover:bg-white text-knock-dark hover:shadow-lg active:scale-98"
+                        }`}
+                      >
+                        {knockStatus === "idle" && "Knock 🚪"}
+                        {knockStatus === "knocking" && "Knocking..."}
+                        {knockStatus === "sent" && "Sent! 🚪"}
+                      </button>
+                    )}
+                  </div>
                 </div>
+              ) : (
+                /* EMPTY STATE - KUDOSAURUS MASCOT CAMEO */
+                <div className="text-center py-8 space-y-6 animate-scale-up">
+                  <div className="relative w-28 h-28 mx-auto">
+                    <img
+                      src="/kudosaurus-full.png"
+                      alt="Kudosaurus Mascot"
+                      className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(95,227,161,0.2)]"
+                    />
+                  </div>
 
-                <div className="pt-4 space-y-3 max-w-xs mx-auto">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentTab("profile");
-                      setActiveChatId(null);
-                    }}
-                    className="block w-full py-4 bg-knock-card hover:bg-knock-card/85 border border-knock-cream/10 text-knock-cream font-mono font-semibold rounded-2xl text-xs tracking-wider uppercase transition-all duration-300 cursor-pointer"
-                  >
-                    Adjust Match Settings ⚙️
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleResetSwipes}
-                    className="block w-full py-4 bg-knock-card hover:bg-knock-card/85 border border-knock-cream/10 text-knock-cream font-mono font-semibold rounded-2xl text-xs tracking-wider uppercase transition-all duration-300"
-                  >
-                    Reset Swipes & Chats 🔄
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleShareProfile}
-                    className="block w-full py-4 bg-knock-cream hover:bg-white text-knock-dark font-mono font-semibold rounded-2xl text-xs tracking-wider uppercase transition-all duration-300"
-                  >
-                    Share My Profile Link 🔗
-                  </button>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-bold tracking-tight text-knock-cream">
+                      All doors are knocked on!
+                    </h2>
+                    <p className="text-xs text-knock-cream/60 leading-relaxed max-w-xs mx-auto">
+                      Kudosaurus has checked every roommate candidate in Kraków. Reset swipes to search again, or share your profile to invite others!
+                    </p>
+                  </div>
+
+                  <div className="pt-4 space-y-3 max-w-xs mx-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentTab("profile");
+                        setActiveChatId(null);
+                      }}
+                      className="block w-full py-4 bg-knock-card hover:bg-knock-card/85 border border-knock-cream/10 text-knock-cream font-mono font-semibold rounded-2xl text-xs tracking-wider uppercase transition-all duration-300 cursor-pointer"
+                    >
+                      Adjust Match Settings ⚙️
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetSwipes}
+                      className="block w-full py-4 bg-knock-card hover:bg-knock-card/85 border border-knock-cream/10 text-knock-cream font-mono font-semibold rounded-2xl text-xs tracking-wider uppercase transition-all duration-300"
+                    >
+                      Reset Swipes & Chats 🔄
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleShareProfile}
+                      className="block w-full py-4 bg-knock-cream hover:bg-white text-knock-dark font-mono font-semibold rounded-2xl text-xs tracking-wider uppercase transition-all duration-300"
+                    >
+                      Share My Profile Link 🔗
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
+              )}
+            </>
+          )
         )}
 
         {/* 2. THE HALLWAY TAB */}
