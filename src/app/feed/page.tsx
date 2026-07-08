@@ -2224,9 +2224,9 @@ export default function FeedPage() {
                         : "text-knock-cream"
                     }`}
                   />
-                  {cooldownDaysLeft > 0 && (
+                  {cooldownDaysLeft > 0 ? (
                     <p className="text-[10px] text-knock-cream/40 mt-1 font-mono leading-relaxed">
-                      ⚠️ Nicknames can only be changed once every 30 days. 
+                      ⚠️ Nicknames can only be changed once every 30 days. ({cooldownDaysLeft} days left)
                       {!isSupabaseConfigured && (
                         <button
                           type="button"
@@ -2247,6 +2247,10 @@ export default function FeedPage() {
                           [Bypass Cooldown (Testing)]
                         </button>
                       )}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-knock-cream/40 mt-1 font-mono leading-relaxed">
+                      💡 Note: Nicknames can only be changed once every 30 days. Choose wisely!
                     </p>
                   )}
                 </div>
