@@ -172,6 +172,7 @@ export default function FeedPage() {
   const [totalUsers, setTotalUsers] = useState<number>(5);
   const [loadingUsersCount, setLoadingUsersCount] = useState<boolean>(true);
   const [blurProfiles, setBlurProfiles] = useState<any[]>([]);
+  const [showA2HSTip, setShowA2HSTip] = useState<boolean>(false);
 
   // Tabs states
   const [currentTab, setCurrentTab] = useState<"discover" | "hallway" | "chats" | "profile">("discover");
@@ -627,6 +628,21 @@ export default function FeedPage() {
       .catch((err) => {
         console.error("Clipboard copy failed: ", err);
       });
+  };
+
+  // Monitor tab change to trigger home screen installation tip
+  useEffect(() => {
+    if (currentTab === "profile") {
+      const dismissed = localStorage.getItem("knock_a2hs_dismissed");
+      if (!dismissed) {
+        setShowA2HSTip(true);
+      }
+    }
+  }, [currentTab]);
+
+  const dismissA2HSTip = () => {
+    setShowA2HSTip(false);
+    localStorage.setItem("knock_a2hs_dismissed", "true");
   };
 
   // Fetch real database roommate candidates (when userData or userId changes)
@@ -2180,6 +2196,28 @@ export default function FeedPage() {
         {/* 4. PROFILE TAB */}
         {currentTab === "profile" && (
           <form onSubmit={handleSaveProfile} className="space-y-6 animate-scale-up">
+            
+            {showA2HSTip && (
+              <div className="bg-knock-mint/10 border border-knock-mint/25 rounded-3xl p-4.5 relative text-left animate-scale-up shadow-lg">
+                <button
+                  type="button"
+                  onClick={dismissA2HSTip}
+                  className="absolute top-3.5 right-3.5 text-knock-cream/40 hover:text-knock-cream text-xs font-bold transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
+                <div className="flex items-start space-x-3 pr-4">
+                  <span className="text-xl">📱</span>
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-knock-cream tracking-tight">Install Knock as an App! ✨</h4>
+                    <p className="text-[10px] text-knock-cream/70 leading-relaxed font-sans">
+                      Add Knock to your mobile home screen for a premium, native app-like experience. 
+                      Open your browser menu (<strong className="text-knock-mint">Safari Share</strong> or <strong className="text-knock-mint">Chrome settings</strong>) and tap <strong>&apos;Add to Home Screen&apos;</strong>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Header / Avatar Cameo */}
             <div className="text-center space-y-2 py-2 animate-fade-in">
