@@ -269,21 +269,10 @@ export default function Home() {
       )}
 
       {/* Footer */}
-      <footer className="relative z-10 w-full max-w-md text-center space-y-2">
-        <p className="text-[11px] text-knock-cream/40 font-mono tracking-wide">
-          Secure and restricted to Kraków university students
+      <footer className="relative z-10 w-full max-w-md text-center py-6 border-t border-knock-cream/5 mt-4">
+        <p className="text-[10px] text-knock-cream/30 font-mono">
+          Knock App © 2026. Independent MVP Project.
         </p>
-        <div className="flex justify-center space-x-3 text-[10px] text-knock-cream/30 font-mono">
-          <span>UJ</span>
-          <span>•</span>
-          <span>AGH</span>
-          <span>•</span>
-          <span>UEK</span>
-          <span>•</span>
-          <span>PK</span>
-          <span>•</span>
-          <span>UR</span>
-        </div>
       </footer>
     </div>
   );

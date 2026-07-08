@@ -57,7 +57,7 @@ export default function OnboardingSuccessPage() {
       </div>
 
       <div className="mt-8 text-center text-[10px] text-knock-cream/30 font-mono">
-        Knock App © 2026. Designed for Kraków Students.
+        Knock App © 2026. Independent MVP Project.
       </div>
     </main>
   );
