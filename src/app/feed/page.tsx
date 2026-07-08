@@ -21,6 +21,7 @@ interface OnboardingData {
   idealRoommate?: string;
   is_verified?: boolean;
   verification_method?: string;
+  vibePhotoUrl?: string;
 }
 
 interface Candidate {
@@ -286,7 +287,8 @@ export default function FeedPage() {
           university: "uj",
           tags: [],
           idealRoommate: "",
-          is_verified: false
+          is_verified: false,
+          vibePhotoUrl: ""
         };
         setUserData(fallback);
         setEditNickname(fallback.nickname);
@@ -333,6 +335,31 @@ export default function FeedPage() {
 
   // Load state on mount
   useEffect(() => {
+    // Redirection check: if total users < 30, direct to lobby
+    const checkUserLimit = async () => {
+      let countVal = 35; // default bypass for offline/unconfigured
+      const debugCount = localStorage.getItem("knock_debug_total_users");
+      if (debugCount !== null) {
+        countVal = Number(debugCount);
+      } else if (isSupabaseConfigured) {
+        try {
+          const { count, error } = await supabase
+            .from("profiles")
+            .select("*", { count: "exact", head: true });
+          if (!error && count !== null) {
+            countVal = count;
+          }
+        } catch (e) {
+          console.warn("Failed to check user limit for feed redirect:", e);
+        }
+      }
+
+      if (countVal < 30) {
+        window.location.href = "/discover";
+      }
+    };
+    checkUserLimit();
+
     if (!isSupabaseConfigured) {
       loadGuestFallback();
       return;
@@ -345,7 +372,6 @@ export default function FeedPage() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          // If no active Supabase session is found, load guest mock data so they can browse candidates
           loadGuestFallback();
           return;
         }
@@ -379,7 +405,8 @@ export default function FeedPage() {
           idealRoommate: profile.ideal_roommate || "",
           nickname_updated_at: profile.nickname_updated_at ? new Date(profile.nickname_updated_at).getTime() : undefined,
           is_verified: profile.is_verified,
-          verification_method: profile.verification_method
+          verification_method: profile.verification_method,
+          vibePhotoUrl: profile.vibe_photo_url || ""
         });
 
         setEditNickname(profile.nickname);
@@ -436,7 +463,7 @@ export default function FeedPage() {
                 gender: p.gender || "Male",
                 university: p.university,
                 bio: p.bio || "",
-                photoUrl: "/room_cozy.png",
+                photoUrl: p.vibe_photo_url || "/room_cozy.png",
                 minBudget: p.min_budget,
                 maxBudget: p.max_budget,
                 smoking: p.smoking,
@@ -472,7 +499,7 @@ export default function FeedPage() {
                 gender: p.gender || "Male",
                 university: p.university,
                 bio: p.bio || "",
-                photoUrl: "/room_cozy.png",
+                photoUrl: p.vibe_photo_url || "/room_cozy.png",
                 minBudget: p.min_budget,
                 maxBudget: p.max_budget,
                 smoking: p.smoking,
@@ -575,7 +602,7 @@ export default function FeedPage() {
               gender: p.gender || "Male",
               university: p.university,
               bio: p.bio || "",
-              photoUrl: "/room_cozy.png",
+              photoUrl: p.vibe_photo_url || "/room_cozy.png",
               minBudget: p.min_budget,
               maxBudget: p.max_budget,
               smoking: p.smoking,
@@ -717,7 +744,6 @@ export default function FeedPage() {
       setUserData(updatedData);
       localStorage.setItem("knock_user_onboarding", JSON.stringify(updatedData));
 
-      // Attempt DB profiles write if authenticated
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -732,6 +758,7 @@ export default function FeedPage() {
             cleanliness: userData?.cleanliness,
             tags: userData?.tags || [],
             ideal_roommate: userData?.idealRoommate || null,
+            vibe_photo_url: userData?.vibePhotoUrl || null,
             is_verified: false,
             verification_method: "id_card"
           });
