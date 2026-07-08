@@ -338,10 +338,7 @@ export default function FeedPage() {
     // Redirection check: if total users < 30, direct to lobby
     const checkUserLimit = async () => {
       let countVal = 35; // default bypass for offline/unconfigured
-      const debugCount = localStorage.getItem("knock_debug_total_users");
-      if (debugCount !== null) {
-        countVal = Number(debugCount);
-      } else if (isSupabaseConfigured) {
+      if (isSupabaseConfigured) {
         try {
           const { count, error } = await supabase
             .from("profiles")

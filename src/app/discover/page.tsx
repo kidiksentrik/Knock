@@ -35,11 +35,7 @@ export default function DiscoverLobbyPage() {
     const fetchLobbyState = async () => {
       let countVal = 5;
 
-      // Check debug override in local storage
-      const debugCount = localStorage.getItem("knock_debug_total_users");
-      if (debugCount !== null) {
-        countVal = Number(debugCount);
-      } else if (isSupabaseConfigured) {
+      if (isSupabaseConfigured) {
         try {
           const { count, error } = await supabase
             .from("profiles")
@@ -112,12 +108,6 @@ export default function DiscoverLobbyPage() {
         console.error("Clipboard copy failed: ", err);
         triggerToast("Failed to copy link. Please copy manually!");
       });
-  };
-
-  const handleDebugOverride = (val: number) => {
-    localStorage.setItem("knock_debug_total_users", String(val));
-    setTotalUsers(val);
-    triggerToast(`Debug override: Total users set to ${val} (Tier ${val < 10 ? 1 : val < 30 ? 2 : 3})`);
   };
 
   if (loading) {
@@ -320,48 +310,6 @@ export default function DiscoverLobbyPage() {
           </button>
         </div>
 
-      </div>
-
-      {/* Floating Debug Override Toolbar (Reviewer Utility Panel) */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-knock-dark/90 border border-knock-cream/15 rounded-full px-4 py-2 flex items-center space-x-3 shadow-2xl z-50 animate-slide-down">
-        <span className="text-[9px] font-mono text-knock-cream/55 uppercase font-bold tracking-wider">
-          Reviewer Debug (Users: {totalUsers}):
-        </span>
-        <div className="flex items-center space-x-1">
-          <button
-            type="button"
-            onClick={() => handleDebugOverride(5)}
-            className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all ${
-              totalUsers < 10 
-                ? "bg-knock-mint text-knock-dark shadow" 
-                : "bg-knock-card border border-knock-cream/5 text-knock-cream/70 hover:text-knock-cream"
-            }`}
-          >
-            Tier 1 (&lt;10)
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDebugOverride(15)}
-            className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all ${
-              totalUsers >= 10 && totalUsers < 30 
-                ? "bg-knock-mint text-knock-dark shadow" 
-                : "bg-knock-card border border-knock-cream/5 text-knock-cream/70 hover:text-knock-cream"
-            }`}
-          >
-            Tier 2 (10-29)
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDebugOverride(35)}
-            className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all ${
-              totalUsers >= 30 
-                ? "bg-knock-mint text-knock-dark shadow" 
-                : "bg-knock-card border border-knock-cream/5 text-knock-cream/70 hover:text-knock-cream"
-            }`}
-          >
-            Tier 3 (&gt;=30)
-          </button>
-        </div>
       </div>
 
       {/* Custom Toast Alert */}
